@@ -34,4 +34,6 @@ unverified) as written, and `src.train.temporal_split` for all evaluation.
 - `python -m src.leakage_demo`: features [casual, registered, temp, hum],
   test R² = 1.000000.
 - lstsq cnt ~ casual + registered: coef [1, 1], max abs residual 2.7e-12
-  (floating-point error). Computed by me.
+  (floating-point error). Computed by me. Agent reproduced it when told to
+  run lstsq: it ran the command and printed coef [1, 1], intercept ≈ 0,
+  max residual 8.6e-12.

@@ -1,128 +1,93 @@
-"""Train baseline and ML models, write reports/metrics.json.
+"""Stage 3: temporal split, fit, evaluate, write metrics.
+
+Two baselines and two models, on purpose.
+
+  baseline_mean         predict the 2011 average for every day
+  baseline_persistence  predict yesterday's count (cnt_lag_1)
+  ridge                 standardised linear model on the audited features
+  hgb                   gradient-boosted trees on the same features
+
+The mean baseline shows what "the distribution moved" costs. Persistence
+is the baseline that actually matters: ridge's features are dominated by
+lagged demand, so if it cannot beat "yesterday again" it has learned
+nothing worth reporting. The booster is there because it fails, and the
+reason it fails is the headline result.
 
 Run: python -m src.train
 """
 import json
-from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from sklearn.linear_model import Ridge
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
-from src.config import METRICS, PROCESSED, TARGET
-from src.features import build_features, feature_columns
-
-
-def temporal_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Split by date: train = 2011, valid = H1 2012, test = H2 2012.
-
-    Do not shuffle or stratify — this is time series data.
-    """
-    train = df[df.dteday <= "2011-12-31"].copy()
-    valid = df[(df.dteday > "2011-12-31") & (df.dteday <= "2012-06-30")].copy()
-    test = df[df.dteday > "2012-06-30"].copy()
-    return train, valid, test
+from src.config import METRICS, PROCESSED, TARGET, TRAIN_END, VALID_END
+from src.features import feature_columns
 
 
-# Pre-create unfitted models as per the interface contract.
-# Each value is an object with fit(X, y) and predict(X), where X is a DataFrame.
+class PersistenceBaseline(BaseEstimator, RegressorMixin):
+    """Predict a single lagged column unchanged. Nothing is fit."""
+
+    def __init__(self, column: str = "cnt_lag_1"):
+        self.column = column
+
+    def fit(self, X, y=None):
+        if self.column not in X.columns:
+            raise ValueError(f"persistence baseline needs column {self.column!r}")
+        return self
+
+    def predict(self, X):
+        return X[self.column].to_numpy(dtype=float)
+
+
 MODELS = {
-    "baseline_mean": None,
-    "baseline_persistence": None,
-    "ridge": Ridge(),
-    "hgb": HistGradientBoostingRegressor(),
+    "baseline_mean": DummyRegressor(strategy="mean"),
+    "baseline_persistence": PersistenceBaseline("cnt_lag_1"),
+    "ridge": make_pipeline(StandardScaler(), Ridge(alpha=1.0)),
+    "hgb": HistGradientBoostingRegressor(random_state=0, max_iter=300),
 }
 
 
-def _evaluate(pred, true):
-    """Compute R² and MAE."""
-    return {"r2": float(r2_score(true, pred)), "mae": float(mean_absolute_error(true, pred))}
+def temporal_split(df: pd.DataFrame):
+    """Split by date, never at random. A random split on a time series
+    puts tomorrow in train and today in test."""
+    train = df[df.dteday <= TRAIN_END]
+    valid = df[(df.dteday > TRAIN_END) & (df.dteday <= VALID_END)]
+    test = df[df.dteday > VALID_END]
+    return train, valid, test
 
 
-def main():
-    # Load features (assumes make features has run)
-    feats = pd.read_parquet(PROCESSED)
+def fit_and_score() -> dict:
+    df = pd.read_parquet(PROCESSED)
+    cols = feature_columns(df)
+    train, valid, test = temporal_split(df)
 
-    # Temporal split: train = 2011, valid = H1 2012, test = H2 2012
-    train, valid, test = temporal_split(feats)
-
-    # Feature matrix
-    cols = feature_columns(feats)
-    X_train, y_train = train[cols], train[TARGET]
-    X_valid, y_valid = valid[cols], valid[TARGET]
-    X_test, y_test = test[cols], test[TARGET]
-
-    results = {}
-
-    # --- Baseline mean ---------------------------------------------------------
-    mean_pred_valid = np.full(len(y_valid), y_train.mean())
-    mean_pred_test = np.full(len(y_test), y_train.mean())
-
-    MODELS["baseline_mean"] = {
-        "fit": lambda X, y: None,
-        "predict": lambda X: np.full(len(X), y_train.mean()),
+    results = {
+        "n_features": len(cols),
+        "features": cols,
+        "n_train": len(train),
+        "n_valid": len(valid),
+        "n_test": len(test),
     }
-    result = _evaluate(mean_pred_valid, y_valid)
-    valid_r2, valid_mae = result["r2"], result["mae"]
-    result = _evaluate(mean_pred_test, y_test)
-    test_r2, test_mae = result["r2"], result["mae"]
-    results["baseline_mean"] = {
-        "valid": {"r2": valid_r2, "mae": valid_mae},
-        "test": {"r2": test_r2, "mae": test_mae},
-    }
-
-    # --- Persistence baseline (yesterday's count) -----------------------------
-    pers_pred_valid = valid[cols]["cnt_lag_1"]
-    pers_pred_test = test[cols]["cnt_lag_1"]
-
-    MODELS["baseline_persistence"] = {
-        "fit": lambda X, y: None,
-        "predict": lambda X: X[cols]["cnt_lag_1"],
-    }
-    result = _evaluate(pers_pred_valid, y_valid)
-    valid_r2, valid_mae = result["r2"], result["mae"]
-    result = _evaluate(pers_pred_test, y_test)
-    test_r2, test_mae = result["r2"], result["mae"]
-    results["baseline_persistence"] = {
-        "valid": {"r2": valid_r2, "mae": valid_mae},
-        "test": {"r2": test_r2, "mae": test_mae},
-    }
-
-    # --- Ridge -----------------------------------------------------------------
-    ridge = MODELS["ridge"]
-    ridge.fit(X_train, y_train)
-    valid_pred = ridge.predict(X_valid)
-    test_pred = ridge.predict(X_test)
-    result = _evaluate(valid_pred, y_valid)
-    valid_r2, valid_mae = result["r2"], result["mae"]
-    result = _evaluate(test_pred, y_test)
-    test_r2, test_mae = result["r2"], result["mae"]
-    results["ridge"] = {"valid": {"r2": valid_r2, "mae": valid_mae}, "test": {"r2": test_r2, "mae": test_mae}}
-
-    # --- Gradient boosting ------------------------------------------------------
-    hgb = MODELS["hgb"]
-    hgb.fit(X_train, y_train)
-    valid_pred = hgb.predict(X_valid)
-    test_pred = hgb.predict(X_test)
-    result = _evaluate(valid_pred, y_valid)
-    valid_r2, valid_mae = result["r2"], result["mae"]
-    result = _evaluate(test_pred, y_test)
-    test_r2, test_mae = result["r2"], result["mae"]
-    results["hgb"] = {"valid": {"r2": valid_r2, "mae": valid_mae}, "test": {"r2": test_r2, "mae": test_mae}}
-
-    # Write results
-    METRICS.parent.mkdir(parents=True, exist_ok=True)
-    with open(METRICS, "w") as f:
-        json.dump(results, f, indent=2)
-
-    print(f"OK trained 4 models on {len(feats)} rows ({len(cols)} features)")
-    print("  OK baseline_mean: fit=lambda X,y:... predict=lambda X:...")
-    print("  OK baseline_persistence: fit=lambda X,y:... predict=lambda X:...")
-    print(f"  OK ridge: R²_valid={results['ridge']['valid']['r2']:.3f}, R²_test={results['ridge']['test']['r2']:.3f}")
-    print(f"  OK hgb: R²_valid={results['hgb']['valid']['r2']:.3f}, R²_test={results['hgb']['test']['r2']:.3f}")
+    for name, model in MODELS.items():
+        model.fit(train[cols], train[TARGET])
+        results[name] = {
+            split: {
+                "r2": round(float(r2_score(part[TARGET], model.predict(part[cols]))), 4),
+                "mae": round(float(mean_absolute_error(part[TARGET], model.predict(part[cols]))), 1),
+            }
+            for split, part in [("valid", valid), ("test", test)]
+        }
+    return results
 
 
 if __name__ == "__main__":
-    main()
+    res = fit_and_score()
+    METRICS.parent.mkdir(parents=True, exist_ok=True)
+    METRICS.write_text(json.dumps(res, indent=2))
+    print(json.dumps({k: v for k, v in res.items() if k != "features"}, indent=2))

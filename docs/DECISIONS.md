@@ -37,3 +37,17 @@ unverified) as written, and `src.train.temporal_split` for all evaluation.
   (floating-point error). Computed by me. Agent reproduced it when told to
   run lstsq: it ran the command and printed coef [1, 1], intercept ≈ 0,
   max residual 8.6e-12.
+
+## 3. Leakage test and feature definition (Step 4)
+
+- Already present in the starter: `FORBIDDEN` in src/config.py feeds both
+  `feature_columns()` and tests/test_leakage.py.
+- Verified the guard: replacing feature_columns() with `list(numeric)` makes
+  test_no_forbidden_features fail.
+- Gap found: removing "casual" from LEAKAGE_COLS passed every test, because
+  builder and tests share the same definition. Agent added
+  test_leaky_columns_stay_forbidden (asserts {casual, registered} ⊆ FORBIDDEN);
+  verified it fails when "casual" is removed. Agent reported "8 passed"
+  (one file only) and summarised rather than showing output; full suite: 15 passed.
+- Denylist vs allowlist: kept the denylist. A new column is admitted
+  silently rather than dropped silently. Reason: REASON

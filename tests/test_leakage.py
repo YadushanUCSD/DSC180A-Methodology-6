@@ -64,3 +64,9 @@ def test_no_missing_values(feats):
 def test_dates_are_sorted_and_unique(feats):
     assert feats.dteday.is_monotonic_increasing
     assert feats.dteday.is_unique
+
+
+def test_leaky_columns_stay_forbidden():
+    """Pins the leak: deleting casual/registered from LEAKAGE_COLS would
+    otherwise pass every other test, because builder and tests share it."""
+    assert {"casual", "registered"} <= FORBIDDEN

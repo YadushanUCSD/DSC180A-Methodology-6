@@ -51,3 +51,23 @@ unverified) as written, and `src.train.temporal_split` for all evaluation.
   (one file only) and summarised rather than showing output; full suite: 15 passed.
 - Denylist vs allowlist: kept the denylist. A new column is admitted
   silently rather than dropped silently. Reason: REASON
+
+## 4. Feature contract (Step 5)
+
+The starter already contains the finished src/features.py
+(reindex_to_calendar, encode_weather with a loud failure, WEATHER_ORDER on
+the mirror's labels, LAG_WARMUP = 7) and its tests. 728 raw rows -> 714
+feature rows, matching the derived bound of 14. I did not have the agent
+rewrite it. Instead I broke each fix on purpose and recorded what caught it.
+
+- Calendar gap (2011-03-10): with reindex_to_calendar made a no-op, only
+  test_calendar_is_complete_before_lagging failed (found a 2-day gap).
+  test_lags_are_true_calendar_lags PASSED: it skips any row whose previous
+  calendar day is missing, which is exactly the one wrong row (2011-03-11).
+  The rolling-mean test checks only row 200. So the lag tests alone would not
+  have caught this bug.
+- Weather, UCI codes: encode_weather raised
+  "unmapped weather labels: ['BAD', 'GOOD', 'MISTY']" (12 errors). Loud, as intended.
+- Weather, silent mismatch (BAD renamed, guard disabled): no error anywhere
+  except test_only_expected_rows_are_dropped: "lost 34 rows; expected at
+  most 14". The 20 BAD days disappeared without a warning.

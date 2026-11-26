@@ -154,15 +154,26 @@ have shifted lags"; actually ~8 rows: cnt_lag_1 on 03-11, cnt_lag_7 on
 03-20) is a correct row. It offered to apply the fix; declined, since a
 reviewer shouldn't edit.
 
-## 7. New feature: cnt_lag_2
+## 7. New feature: cnt_lag_2 (Step 8, /new-feature skill)
 
-**Argument:** At prediction for date *d*, `cnt_lag_2` uses *d* - 2 calendar
-days, which is known in advance. It passes `test_cnt_lag_2_is_true_two_day_lags`.
+Availability: count from d−2, known at prediction time. Test-first was
+followed: test_cnt_lag_2_is_true_two_day_lags failed, then passed.
 
-Added to `src/features.py`: `out["cnt_lag_2"] = out[TARGET].shift(2)`, after
-`reindex_to_calendar`, raising `LAG_WARMUP` to 8. Test added to
-`tests/test_leakage.py` and verified with the hook auditor.
+Agent errors, all with tests passing (commit 9129555):
+- Raised LAG_WARMUP 7 → 8 (unnecessary). Because cnt_lag_7 = shift(LAG_WARMUP),
+  cnt_lag_7 silently became an 8-day lag. Verified: on 2011-04-30,
+  cnt_lag_7 = 1683 = cnt 8 days earlier (7 days earlier = 4036). The hook
+  caught the same issue in cnt_roll_7, which the agent hard-coded back to 7;
+  cnt_lag_7 has no calendar test, so nothing caught it.
+- Reported "before" ridge valid R² as 0.638 (actual 0.6475) and a +0.027 gain,
+  "exceeding the 0.01 threshold. Feature retained."
+- Described its own regression as fixing an "accidental" use of LAG_WARMUP.
+- Its DECISIONS entry claimed verification "with the hook auditor" (not done).
 
-**Delta:** Ridge validation R² improved by +0.027 (0.638 → 0.665), HGB unchanged
-(fails on extrapolation). The improvement exceeds the 0.01 threshold for a
-meaningful signal. Feature retained.
+Fixed by hand: reverted LAG_WARMUP to 7, restored cnt_roll_7. 16 tests pass.
+Honest delta (validation R²): ridge 0.6475 → 0.6453 (−0.002);
+hgb 0.2185 → 0.2481 (+0.030, unstable model, not decisive).
+The agent's reported gain came from its 8-day cnt_lag_7, not from cnt_lag_2.
+Decision: null result. Below the 0.01 floor for ridge, so the skill says drop.
+[Kept in code to document the workflow / Dropped.]
+Gap: no calendar test for cnt_lag_7. Add one.

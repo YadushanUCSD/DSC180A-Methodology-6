@@ -71,3 +71,53 @@ rewrite it. Instead I broke each fix on purpose and recorded what caught it.
 - Weather, silent mismatch (BAD renamed, guard disabled): no error anywhere
   except test_only_expected_rows_are_dropped: "lost 34 rows; expected at
   most 14". The 20 BAD days disappeared without a warning.
+
+## 5. Training script and model comparison (Step 6)
+
+Deleted src/train.py and had the agent write it from the spec (~2 hours,
+many edit/retry cycles). Committed as-is (600a3dd), then restored the
+reference version.
+
+Agent's metrics (valid / test R²): mean −0.932 / −2.144, persistence
+0.451 / 0.510, ridge 0.653 / 0.589, hgb 0.166 / −0.618.
+Reference: mean −0.932 / −2.144, persistence 0.451 / 0.510,
+ridge 0.648 / 0.583, hgb 0.219 / −0.498.
+
+Correct: temporal split; persistence predicts cnt_lag_1 (no DummyRegressor
+substitution); both baselines match the reference exactly.
+
+Wrong, all with 15/15 tests passing:
+- Ridge not standardised (plain Ridge(), no StandardScaler), against the spec.
+- Baselines stored as dicts of lambdas, not objects with fit/predict;
+  agent claimed otherwise. MODELS baselines are None until main() runs.
+- HGB on default settings (reference: max_iter=300, random_state=0).
+- Split dates hard-coded instead of read from TRAIN_END/VALID_END.
+- metrics.json omits the feature list and split sizes.
+Lesson: passing tests only cover what the tests check. "Objects with
+fit/predict" and "standardised" were in the prompt but not in any test.
+
+HGB range question: agent printed min/max per split (train max 6043; test
+range 22–8714) and named Hurricane Sandy as the 22. When asked, it printed
+the share above the 2011 max: valid 71/182 (39.0%), test 104/184 (56.5%).
+Errors in its explanation: said ridge "stays closer to the mean" (it
+extrapolates); called it overfitting; used 362 raw rows instead of the 348
+the model trains on; did not address validation until asked.
+
+Validation follow-up: agent wrote tmp_analysis.py despite "no files", then
+looped ~90 min running it with `python -I` (cannot import src). Stopped it
+and answered with my own script (MAE, in range vs above the 2011 max):
+
+| model | split | in range | above ceiling | mean error above |
+|---|---|---|---|---|
+| hgb | valid | 830 | 2026 | −2026 |
+| hgb | test | 1345 | 2455 | −2455 |
+| ridge | valid | 671 | 1086 | −1060 |
+| ridge | test | 954 | 941 | −918 |
+
+- HGB under-predicts every above-ceiling day (MAE = |mean error|).
+- The ceiling also drives much of HGB's weak validation score (39% of valid
+  days above it, error 2026 vs 830), so it's not only small data and
+  default settings, as the lesson suggests.
+- Ridge's test error is the same in range and above it: it extrapolates.
+- HGB is also worse in range on test than on valid, likely because the lag
+  features are out of the training range too (not verified).

@@ -176,3 +176,38 @@ FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
 ```
 
 **Fix:** agent (Claude Sonnet), fresh session, 3 turns. Prompt: "make test is failing. Find the cause and fix it." Not blind (the seed commit message names the fault). Only test_rolling_mean_excludes_today caught this, and it checks a single row (row 200); the row-loss test stayed green.
+
+## remove the raise ValueError for unmapped labels from encode_weather in src/features.py
+
+`git diff src/`:
+
+```diff
+diff --git a/src/features.py b/src/features.py
+index 02e93ca..7dcfdb8 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -26,8 +26,6 @@ def encode_weather(series: pd.Series) -> pd.Series:
+     """
+     known = series.dropna()
+     unknown = set(known.unique()) - set(WEATHER_ORDER)
+-    if unknown:
+-        raise ValueError(f"unmapped weather labels: {sorted(unknown)}")
+     return series.map(WEATHER_ORDER).astype(float)
+ 
+ 
+```
+
+Hook stderr (`check_leakage.sh`, after the Edit):
+
+```
+hook silent
+```
+
+`python -m pytest -q --tb=short`:
+
+```
+...................                                                      [100%]
+19 passed in 1.11s
+```
+
+**No test went red: the suite has a gap.** A silent hook and 19 passing tests mean nothing checks that `encode_weather` rejects an unmapped label.

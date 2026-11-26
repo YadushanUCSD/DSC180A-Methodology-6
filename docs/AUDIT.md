@@ -2,10 +2,7 @@
 
 **Repository audited:** https://github.com/aceyq/bikeshare-open.git (HEAD 1082e07; starter commit f78104c)
 
-**How it was run:** the leakage-auditor subagent, from my own repo's Claude Code session (Claude
-Sonnet), with the teammate's clone added as a read-only working directory. Prompt: review
-git -C ~/Downloads/teammate-audit diff f78104c HEAD -- src tests against the five checks, reading
-and running their code, editing nothing.
+**How it was run:** the leakage-auditor subagent was run from my own repo's Claude Code with my teammate's clone added as a read-only working directory.
 
 ## Auditor output (verbatim)
 
@@ -15,13 +12,6 @@ and running their code, editing nothing.
 
 ## My verdict
 
-The auditor reported no findings, so none changes a number, and I agree with that for the code it
-reviewed. Its evidence is the right kind: it perturbed future target values and confirmed no feature
-moved (a direct leakage test, not a reading of names or docstrings), recomputed lags against the
-calendar, and reproduced the committed metrics. That covers the one place I expected risk, their
-Exercise 4 hgb_delta target (predicting cnt minus cnt_lag_1): since cnt_lag_1 uses only the previous
-day, adding it back to the prediction is a valid inversion and introduces no leakage. The limits of
-this audit: it checked the code against five mechanical checks, not whether their report's
-conclusions follow from the numbers, and it reviewed only src and tests, so their CLAUDE.md, skill
-and written arguments were not assessed. A clean result here means "no detectable leakage or split
-error", not "the analysis is right".
+The auditor reported no findings, so no numerical changes are necessary. Instead of trusting variable names or docstrings, the agent ran a direct leakage test by perturbing future target values to verify that no features shifted, recomputed lags against the calendar, and reproduced the committed metrics. I expected risk—their Exercise 4 hgb_delta target (predicting cnt minus cnt_lag_1) which is confirmed by this result. Because cnt_lag_1 relies on the previous day, adding it back to the prediction is a valid inversion and introduces no leakage.
+
+The audit had some limits. It evaluated the code against five mechanical checks, not whether the report's conclusions actually follow from the data, and it only inspected src and tests—meaning CLAUDE.md. This means that the written arguments were never assessed. A clean result here confirms there is no detectable leakage or split error, but not that the overall analysis is sound.

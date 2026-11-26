@@ -213,3 +213,9 @@ hook silent
 **No test went red: the suite has a gap.** A silent hook and 19 passing tests mean nothing checks that `encode_weather` rejects an unmapped label.
 
 **Fix:** agent (Claude Sonnet), fresh session, 3 turns. No test went red and the hook was silent: every label in the data is mapped, so removing the raise changes nothing until a new label appears. Fixed by restoring the raise and adding a test that feeds encode_weather an unmapped label.
+
+**Proof the new test closes the gap** (guard disabled with `if False:`, then restored):
+
+FAILED tests/test_contract.py::test_encode_weather_rejects_unmapped_label - F...
+1 failed, 19 passed in 1.14s
+

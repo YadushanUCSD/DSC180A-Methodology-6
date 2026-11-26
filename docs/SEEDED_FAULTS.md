@@ -108,3 +108,5 @@ E   assert not ({'atemp', 'casual', 'cnt_lag_1', 'cnt_lag_2', 'cnt_lag_7', 'cnt_
 FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: fo...
 1 failed, 18 passed in 1.18s
 ```
+
+**Fix:** agent (Claude Sonnet), fresh session, 3 turns. Prompt: "make test is failing. Find the cause and fix it." Not blind: the seed commit message and this file name the fault, and the failing test prints `{'casual'}`. The count measures fixing a fault the suite has flagged, not unaided diagnosis.

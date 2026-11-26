@@ -121,3 +121,15 @@ and answered with my own script (MAE, in range vs above the 2011 max):
 - Ridge's test error is the same in range and above it: it extrapolates.
 - HGB is also worse in range on test than on valid, likely because the lag
   features are out of the training range too (not verified).
+
+Ridge coefficients (standardised): cnt_roll_7 +567, cnt_lag_1 +362,
+weather_severity −280, temp +200, windspeed −156, hum −117 (verified with
+my own script against src/train.py). Lags lead, but weather terms are of
+comparable size, so ridge learns "last week's level adjusted for today's
+weather", not just "yesterday again". Better R² but worse MAE than
+persistence means ridge fixes large misses on weather-change days (R²
+squares errors) while being slightly worse on ordinary days.
+Agent: right table, contradictory conclusion ("just yesterday again" and
+"learning beyond persistence"), muddled R²/MAE explanation, misattributed
+a quote to CLAUDE.md, and wrote tmp_ridge.py despite "no files" after six
+failed commands.

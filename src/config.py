@@ -53,3 +53,12 @@ VALID_END = "2012-06-30"
 # have no complete history and are dropped; tests/test_contract.py uses this
 # to bound how many rows may legitimately disappear.
 LAG_WARMUP = 7
+
+
+# 4. Encoded or superseded: raw labels that src/features.py re-encodes into
+#    differently named features (weather -> weather_severity, mnth ->
+#    month_sin/month_cos, holiday/workday/weekday -> calendar flags), or that a
+#    derived feature supersedes (season: covered by the month encoding). Not
+#    model inputs under their own names. Every raw column must be in FORBIDDEN,
+#    this set, or the feature list -- tests/test_contract.py enforces it.
+ENCODED_COLS = {"mnth", "holiday", "weekday", "workday", "weather", "season"}

@@ -56,3 +56,24 @@ def test_persistence_baseline_is_reported():
     """The baseline that matters for a lag-driven model is 'yesterday again'.
     It must be in the comparison, whatever its score."""
     assert "baseline_persistence" in MODELS
+
+
+def _unclassified(columns, feature_cols):
+    from src.config import ENCODED_COLS, FORBIDDEN
+    known = FORBIDDEN | ENCODED_COLS | set(feature_cols) | {"dteday"}
+    return sorted(set(columns) - known)
+
+
+def test_every_raw_column_is_classified(feats):
+    """A new column in the raw CSV must not enter silently: it has to be
+    forbidden, encoded, or a feature, by an explicit edit to src/config.py."""
+    from src.config import RAW
+    from src.features import feature_columns
+    raw_cols = pd.read_csv(RAW, nrows=0).columns
+    missing = _unclassified(raw_cols, feature_columns(feats))
+    assert not missing, f"unclassified raw columns: {missing}; classify each in src/config.py"
+
+
+def test_unclassified_check_flags_a_new_column(feats):
+    from src.features import feature_columns
+    assert _unclassified(["dteday", "new_sensor"], feature_columns(feats)) == ["new_sensor"]

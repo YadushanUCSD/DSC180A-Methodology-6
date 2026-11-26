@@ -4,7 +4,13 @@ import pytest
 from sklearn.metrics import r2_score
 
 from src.config import LAG_WARMUP, TARGET
-from src.features import build_features, feature_columns, reindex_to_calendar
+from src.features import (
+    WEATHER_ORDER,
+    build_features,
+    encode_weather,
+    feature_columns,
+    reindex_to_calendar,
+)
 from src.ingest import load_raw
 from src.train import MODELS, temporal_split
 
@@ -41,6 +47,13 @@ def test_only_expected_rows_are_dropped(raw, feats):
     allowed_loss = LAG_WARMUP + LAG_WARMUP * missing_days
     lost = len(raw) - len(feats)
     assert lost <= allowed_loss, f"lost {lost} rows; expected at most {allowed_loss}"
+
+
+def test_encode_weather_rejects_unmapped_label():
+    """An unseen label must raise, not become a NaN that dropna() deletes."""
+    labels = pd.Series([*WEATHER_ORDER, "UNSEEN"])
+    with pytest.raises(ValueError, match="UNSEEN"):
+        encode_weather(labels)
 
 
 def test_beats_the_mean_baseline(feats):

@@ -174,3 +174,5 @@ E     Expected: 4414.857142857143 ± 0.00441486
 FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
 1 failed, 18 passed in 1.18s
 ```
+
+**Fix:** agent (Claude Sonnet), fresh session, 3 turns. Prompt: "make test is failing. Find the cause and fix it." Not blind (the seed commit message names the fault). Only test_rolling_mean_excludes_today caught this, and it checks a single row (row 200); the row-loss test stayed green.

@@ -153,3 +153,16 @@ have shifted lags"; actually ~8 rows: cnt_lag_1 on 03-11, cnt_lag_7 on
 03-17, cnt_roll_7 on 03-11..03-17), and its own example (cnt_lag_7 on
 03-20) is a correct row. It offered to apply the fix; declined, since a
 reviewer shouldn't edit.
+
+## 7. New feature: cnt_lag_2
+
+**Argument:** At prediction for date *d*, `cnt_lag_2` uses *d* - 2 calendar
+days, which is known in advance. It passes `test_cnt_lag_2_is_true_two_day_lags`.
+
+Added to `src/features.py`: `out["cnt_lag_2"] = out[TARGET].shift(2)`, after
+`reindex_to_calendar`, raising `LAG_WARMUP` to 8. Test added to
+`tests/test_leakage.py` and verified with the hook auditor.
+
+**Delta:** Ridge validation R² improved by +0.027 (0.638 → 0.665), HGB unchanged
+(fails on extrapolation). The improvement exceeds the 0.01 threshold for a
+meaningful signal. Feature retained.

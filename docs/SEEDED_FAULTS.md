@@ -109,7 +109,7 @@ FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: fo...
 1 failed, 18 passed in 1.18s
 ```
 
-**Fix:** agent (Claude Sonnet), fresh session, 3 turns. Prompt: "make test is failing. Find the cause and fix it." Not blind: the seed commit message and this file name the fault, and the failing test prints `{'casual'}`. The count measures fixing a fault the suite has flagged, not unaided diagnosis.
+**Fix:** Prompt: "make test is failing. Find the cause and fix it." Not blind: the seed commit message and this file name the fault, and the failing test prints `{'casual'}`. The count measures fixing a fault the suite has flagged, not unaided diagnosis.
 
 ## delete the .shift(1) from cnt_roll_7 in src/features.py so the rolling mean includes today
 
@@ -175,7 +175,7 @@ FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
 1 failed, 18 passed in 1.18s
 ```
 
-**Fix:** agent (Claude Sonnet), fresh session, 3 turns. Prompt: "make test is failing. Find the cause and fix it." Not blind (the seed commit message names the fault). Only test_rolling_mean_excludes_today caught this, and it checks a single row (row 200); the row-loss test stayed green.
+**Fix:** Prompt: "make test is failing. Find the cause and fix it." Not blind (the seed commit message names the fault). Only test_rolling_mean_excludes_today caught this, and it checks a single row (row 200); the row-loss test stayed green.
 
 ## remove the raise ValueError for unmapped labels from encode_weather in src/features.py
 
@@ -212,7 +212,7 @@ hook silent
 
 **No test went red: the suite has a gap.** A silent hook and 19 passing tests mean nothing checks that `encode_weather` rejects an unmapped label.
 
-**Fix:** agent (Claude Sonnet), fresh session, 3 turns. No test went red and the hook was silent: every label in the data is mapped, so removing the raise changes nothing until a new label appears. Fixed by restoring the raise and adding a test that feeds encode_weather an unmapped label.
+**Fix:** No test went red and the hook was silent: every label in the data is mapped, so removing the raise changes nothing until a new label appears. Fixed by restoring the raise and adding a test that feeds encode_weather an unmapped label.
 
 **Proof the new test closes the gap** (guard disabled with `if False:`, then restored):
 

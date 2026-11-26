@@ -62,3 +62,7 @@ LAG_WARMUP = 7
 #    model inputs under their own names. Every raw column must be in FORBIDDEN,
 #    this set, or the feature list -- tests/test_contract.py enforces it.
 ENCODED_COLS = {"mnth", "holiday", "weekday", "workday", "weather", "season"}
+
+# The raw file is immutable. tests/test_contract.py checks this hash, because
+# deny rules bind only the Edit/Write tools and chmod does not survive a clone.
+RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"

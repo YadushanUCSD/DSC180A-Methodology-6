@@ -219,3 +219,71 @@ hook silent
 FAILED tests/test_contract.py::test_encode_weather_rejects_unmapped_label - F...
 1 failed, 19 passed in 1.14s
 
+## 4. The fault the hook cannot see: `cp` into data/raw/ from Bash
+
+The PostToolUse hook matches only Edit|Write, and the deny rules (`Write(./data/raw/**)`, `Edit(./data/raw/**)`) bind only those tools, so a Bash `cp` passes both. A tampered copy (one `temp` value +5) was copied over the raw file.
+
+With `chmod -w data/raw/*.csv` (set in Step 7), the filesystem blocked it:
+
+```
+$ cp /tmp/tampered.csv data/raw/bike_daily.csv
+cp: data/raw/bike_daily.csv: Permission denied
+exit=1
+```
+
+Without it (chmod is not stored in git, so a fresh clone has no protection), the copy succeeded and **every test passed**. The data changed silently:
+
+```
+$ cp /tmp/tampered.csv data/raw/bike_daily.csv   # without chmod -w
+exit=0
+$ python -m pytest -q
+20 passed in 1.11s
+$ shasum -a 256 data/raw/bike_daily.csv
+c179234567cd68fc7a1002b269c8a475e9320b4a8a45c592630eeecc3de78304  data/raw/bike_daily.csv
+```
+
+**What would catch it:** a filesystem permission (works locally, not after a clone); a PreToolUse hook on Bash that rejects commands writing under data/raw/; a Stop hook running `make test`; or a hash check. Implemented the hash check as `test_raw_data_is_unmodified` in tests/test_contract.py, with the hash in src/config.py:
+
+```diff
+diff --git a/src/config.py b/src/config.py
+index cab82a8..293e4d3 100644
+--- a/src/config.py
++++ b/src/config.py
+@@ -62,3 +62,7 @@ LAG_WARMUP = 7
+ #    model inputs under their own names. Every raw column must be in FORBIDDEN,
+ #    this set, or the feature list -- tests/test_contract.py enforces it.
+ ENCODED_COLS = {"mnth", "holiday", "weekday", "workday", "weather", "season"}
++
++# The raw file is immutable. tests/test_contract.py checks this hash, because
++# deny rules bind only the Edit/Write tools and chmod does not survive a clone.
++RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"
+diff --git a/tests/test_contract.py b/tests/test_contract.py
+index 8ae9f26..a4d2217 100644
+--- a/tests/test_contract.py
++++ b/tests/test_contract.py
+@@ -90,3 +90,14 @@ def test_every_raw_column_is_classified(feats):
+ def test_unclassified_check_flags_a_new_column(feats):
+     from src.features import feature_columns
+     assert _unclassified(["dteday", "new_sensor"], feature_columns(feats)) == ["new_sensor"]
++
++
++def test_raw_data_is_unmodified():
++    """Catches a Bash `cp` into data/raw/, which the PostToolUse hook cannot see."""
++    import hashlib
++    from src.config import RAW, RAW_SHA256
++    digest = hashlib.sha256(RAW.read_bytes()).hexdigest()
++    assert digest == RAW_SHA256, (
++        f"data/raw/bike_daily.csv changed (sha256 {digest[:16]}...); raw data is "
++        "immutable -- restore it with git checkout"
++    )
+```
+
+The same `cp` now fails the suite:
+
+```
+$ cp /tmp/tampered.csv data/raw/bike_daily.csv; python -m pytest -q
+/Users/yadi/Downloads/bikeshare-open-starter/tests/test_contract.py:100: AssertionError: data/raw/bike_daily.csv changed (sha256 c179234567cd68fc...); raw data is immutable -- restore it with git checkout
+=========================== short test summary info ============================
+FAILED tests/test_contract.py::test_raw_data_is_unmodified - AssertionError: ...
+1 failed, 20 passed in 1.12s
+```

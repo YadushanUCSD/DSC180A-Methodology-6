@@ -90,3 +90,14 @@ def test_every_raw_column_is_classified(feats):
 def test_unclassified_check_flags_a_new_column(feats):
     from src.features import feature_columns
     assert _unclassified(["dteday", "new_sensor"], feature_columns(feats)) == ["new_sensor"]
+
+
+def test_raw_data_is_unmodified():
+    """Catches a Bash `cp` into data/raw/, which the PostToolUse hook cannot see."""
+    import hashlib
+    from src.config import RAW, RAW_SHA256
+    digest = hashlib.sha256(RAW.read_bytes()).hexdigest()
+    assert digest == RAW_SHA256, (
+        f"data/raw/bike_daily.csv changed (sha256 {digest[:16]}...); raw data is "
+        "immutable -- restore it with git checkout"
+    )

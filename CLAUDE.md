@@ -9,6 +9,9 @@ rides) from calendar, weather, and lagged-demand features.
 - `make train` - fit models, write `reports/metrics.json`
 - `make test` - pytest; run this before claiming anything works
 - `make all` - the three pipeline stages in order
+- `python -m src.train --target ratio` - exploratory ratio target
+  (Exercise 4), writes `reports/metrics_ratio.json`. `reports/metrics.json`
+  is always the untransformed pipeline; never commit ratio numbers into it.
 
 ## Non-negotiable rules
 - **Never** put `casual` or `registered` in a feature set:
@@ -23,6 +26,17 @@ rides) from calendar, weather, and lagged-demand features.
 - Report the mean baseline **and** the persistence baseline (yesterday's
   count) alongside every model. A negative R^2 is a finding, not a bug
   to hide.
+- Every raw column must be classified in `src/config.py` (`FORBIDDEN` or
+  `ENCODED_COLS`) or be a feature; `tests/test_contract.py` fails otherwise.
+- **Never** write to `data/raw/` by any route, including Bash `cp`/`mv`.
+  Its sha256 is tested (`RAW_SHA256`).
+- `cnt_lag_7` and `cnt_roll_7` are built from `LAG_WARMUP`. Raise it only
+  for a feature needing more than 7 days of history, never to fix a test.
+
+## Skills
+- `/new-feature <name>` - add a feature, test first, report validation delta.
+- `/seed-fault <description>` - seed one fault, record red output and hook
+  stderr in `docs/SEEDED_FAULTS.md`, commit the broken state. Never fixes.
 
 ## Style
 - Standard library, pandas, scikit-learn only. No new dependencies

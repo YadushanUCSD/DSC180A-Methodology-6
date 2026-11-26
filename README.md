@@ -1,4 +1,4 @@
-# Bikeshare demand capstone
+# Bikeshare demand
 
 Reference repository for the DSC 180A methodology lesson on agentic
 programming. Forecasts daily Capital Bikeshare ridership (`cnt`) for

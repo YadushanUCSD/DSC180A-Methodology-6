@@ -82,3 +82,10 @@ def test_leaky_columns_stay_forbidden():
     """Pins the leak: deleting casual/registered from LEAKAGE_COLS would
     otherwise pass every other test, because builder and tests share it."""
     assert {"casual", "registered"} <= FORBIDDEN
+
+
+def test_cnt_lag_2_on_named_date(feats):
+    """Hand-computed: cnt on 2011-06-13 in data/raw/bike_daily.csv is 5020,
+    so cnt_lag_2 on 2011-06-15 must equal 5020 (strictly earlier date)."""
+    row = feats.set_index("dteday").loc[pd.Timestamp("2011-06-15")]
+    assert row["cnt_lag_2"] == 5020

@@ -110,3 +110,67 @@ FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: fo...
 ```
 
 **Fix:** agent (Claude Sonnet), fresh session, 3 turns. Prompt: "make test is failing. Find the cause and fix it." Not blind: the seed commit message and this file name the fault, and the failing test prints `{'casual'}`. The count measures fixing a fault the suite has flagged, not unaided diagnosis.
+
+## delete the .shift(1) from cnt_roll_7 in src/features.py so the rolling mean includes today
+
+`git diff src/`:
+
+```diff
+diff --git a/src/features.py b/src/features.py
+index 02e93ca..a03a88d 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -74,7 +74,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
+     out["cnt_lag_1"] = out[TARGET].shift(1)
+     out["cnt_lag_2"] = out[TARGET].shift(2)
+     out["cnt_lag_7"] = out[TARGET].shift(LAG_WARMUP)
+-    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(LAG_WARMUP).mean()
++    out["cnt_roll_7"] = out[TARGET].rolling(LAG_WARMUP).mean()
+ 
+     return out.dropna().reset_index(drop=True)
+ 
+```
+
+Hook stderr (`check_leakage.sh`, as surfaced after the Edit):
+
+```
+[${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh]: Leakage tests failed after editing /Users/yadi/Downloads/bikeshare-open-starter/src/features.py:
+[714 rows x 29 columns]
+
+    def test_rolling_mean_excludes_today(feats):
+        """cnt_roll_7 must be the mean of the 7 calendar days *before* today."""
+        by_date = feats.set_index("dteday")[TARGET]
+        date = feats.dteday.iloc[200]
+        window = [date - pd.Timedelta(days=k) for k in range(1, 8)]
+        if all(d in by_date.index for d in window):
+            expected = sum(by_date[d] for d in window) / 7
+>           assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+E           assert np.float64(4389.0) == 4414.857142857143 ± 0.00441486
+E             
+E             comparison failed
+E             Obtained: 4389.0
+E             Expected: 4414.857142857143 ± 0.00441486
+
+tests/test_leakage.py:69: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
+1 failed, 9 passed in 0.34s
+```
+
+`python -m pytest -q --tb=short`:
+
+```
+...........F.......                                                      [100%]
+=================================== FAILURES ===================================
+_______________________ test_rolling_mean_excludes_today _______________________
+tests/test_leakage.py:69: in test_rolling_mean_excludes_today
+    assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+E   assert np.float64(4389.0) == 4414.857142857143 ± 0.00441486
+E     
+E     comparison failed
+E     Obtained: 4389.0
+E     Expected: 4414.857142857143 ± 0.00441486
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
+1 failed, 18 passed in 1.18s
+```

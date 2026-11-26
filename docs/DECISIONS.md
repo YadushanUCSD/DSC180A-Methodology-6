@@ -146,4 +146,10 @@ Gap: the hook runs only tests/test_leakage.py. The silent weather-row loss
 (Step 5) is caught by test_contract.py, so this hook would not catch it.
 Raw data: deny rules only bind the Edit/Write tools, not Bash; made
 data/raw/*.csv read-only with chmod -w.
-Auditor on a planted fault (reindex_to_calendar made a no-op): RESULT
+Auditor on a planted fault (reindex_to_calendar made a no-op): found it in ~9 min (src/features.py:35, the premature return makes the
+reindex unreachable, so lags misalign across the 2011-03-10 gap). Correct
+diagnosis and fix. But it overstated the blast radius ("subsequent rows
+have shifted lags"; actually ~8 rows: cnt_lag_1 on 03-11, cnt_lag_7 on
+03-17, cnt_roll_7 on 03-11..03-17), and its own example (cnt_lag_7 on
+03-20) is a correct row. It offered to apply the fix; declined, since a
+reviewer shouldn't edit.

@@ -133,3 +133,17 @@ Agent: right table, contradictory conclusion ("just yesterday again" and
 "learning beyond persistence"), muddled R²/MAE explanation, misattributed
 a quote to CLAUDE.md, and wrote tmp_ridge.py despite "no files" after six
 failed commands.
+
+## 6. Hook and reviewer (Step 7)
+
+Hook (.claude/hooks/check_leakage.sh) and leakage-auditor subagent were
+already in the starter. Tested the hook by piping the PostToolUse JSON to it:
+- src/features.py edit, tests passing: exit 0.
+- README.md edit: exit 0 immediately (tests not run).
+- src/features.py with feature_columns() returning list(numeric): exit 2;
+  stderr lists casual, registered, cnt, cnt_2d_bfr, yr, days_since_2011, instant.
+Gap: the hook runs only tests/test_leakage.py. The silent weather-row loss
+(Step 5) is caught by test_contract.py, so this hook would not catch it.
+Raw data: deny rules only bind the Edit/Write tools, not Bash; made
+data/raw/*.csv read-only with chmod -w.
+Auditor on a planted fault (reindex_to_calendar made a no-op): RESULT
